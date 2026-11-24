@@ -1,5 +1,5 @@
 // Guarda la app para que abra aunque no haya conexión. Los datos de AniList y GitHub no se guardan aquí.
-const CACHE = 'mis-animes-v1';
+const CACHE = 'mis-animes-v2';
 const APP = ['./', 'index.html', 'manifest.webmanifest', 'icono-192.png', 'icono-512.png'];
 
 self.addEventListener('install', e => {
