@@ -9,20 +9,35 @@ const PRUEBA = process.env.PRUEBA === 'true';
 const APP = 'https://samuelmorenogoomez.github.io/mis-animes/';
 const ESTADO = 'estado/ultimo.json';
 
-if (!GIST_ID || !TOPIC) { console.log('Faltan los secretos GIST_ID o NTFY_TOPIC'); process.exit(1); }
+const VAPID_PUBLIC = 'BGrRhMJK1bwbbk-BGlknQgYEjsYL2PCmVmocxXHnPMoAOlMEkslhVxHOEmkU2kPLFaHuoAU7Zyv_59iRhgvDYnA';
+const VAPID_PRIVATE = process.env.VAPID_PRIVATE;
 
-async function avisar(title, message, icon) {
-  const r = await fetch('https://ntfy.sh/', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ topic: TOPIC, title, message, click: APP, tags: ['tv'], ...(icon ? { icon } : {}) })
-  });
-  if (!r.ok) throw new Error('ntfy respondió ' + r.status);
+if (!GIST_ID) { console.log('Falta el secreto GIST_ID'); process.exit(1); }
+
+// avisos directos a la app (web push), si está la clave
+let webpush = null;
+if (VAPID_PRIVATE) {
+  webpush = (await import('web-push')).default;
+  webpush.setVapidDetails(APP, VAPID_PUBLIC, VAPID_PRIVATE);
 }
+let aparatos = [];
+const cuenta = { push: 0, pushFallos: 0, ntfy: 0 };
 
-if (PRUEBA) {
-  await avisar('Mis animes y mangas', 'Los avisos funcionan. Te llegará uno así cada vez que salga un capítulo de lo que estás viendo.');
-  console.log('Aviso de prueba enviado');
+async function avisar(title, message, icon, tag) {
+  for (const s of aparatos) {
+    try {
+      await webpush.sendNotification(s, JSON.stringify({ title, body: message, icon, tag, url: APP }), { TTL: 6 * 3600 });
+      cuenta.push++;
+    } catch (e) { cuenta.pushFallos++; }
+  }
+  if (TOPIC) {
+    const r = await fetch('https://ntfy.sh/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ topic: TOPIC, title, message, click: APP, tags: ['tv'], ...(icon ? { icon } : {}) })
+    });
+    if (r.ok) cuenta.ntfy++;
+  }
 }
 
 const ahora = Math.floor(Date.now() / 1000);
@@ -42,6 +57,13 @@ async function leerLista() {
 }
 let db;
 try { db = await leerLista(); } catch (e) { console.log(e.message); process.exit(1); }
+
+if (webpush) aparatos = Object.values(db.push || {}).filter(x => x && x.sub && !x.off).map(x => x.sub);
+
+if (PRUEBA) {
+  await avisar('Mis animes y mangas', 'Los avisos funcionan. Te llegará uno así cada vez que salga un capítulo de lo que estás viendo.');
+  console.log('Aviso de prueba enviado');
+}
 
 const isSeason = p => p.format === 'TV' || p.format === 'TV_SHORT' || (p.format === 'ONA' && (p.episodes ? p.episodes >= 3 : p.status !== 'FINISHED'));
 const porParte = new Map();
@@ -70,11 +92,11 @@ if (porParte.size) {
   for (const s of j.data?.Page?.airingSchedules || []) {
     const x = porParte.get(s.mediaId); if (!x) continue;
     if ((x.it.watched?.[x.p.id] || []).includes(s.episode)) continue;
-    await avisar(x.it.title, `${x.etiqueta}Capítulo ${s.episode} ya disponible`, x.p.cover || x.it.cover);
+    await avisar(x.it.title, `${x.etiqueta}Capítulo ${s.episode} ya disponible`, x.p.cover || x.it.cover, `${x.p.id}-${s.episode}`);
     enviados++;
   }
 }
 
 fs.mkdirSync('estado', { recursive: true });
 fs.writeFileSync(ESTADO, JSON.stringify({ ultimo: ahora }));
-console.log(`Series en emisión revisadas: ${porParte.size}. Avisos enviados: ${enviados}.`);
+console.log(`Series en emisión revisadas: ${porParte.size}. Capítulos nuevos: ${enviados}. Aparatos con avisos: ${aparatos.length}${webpush ? '' : ' (falta VAPID_PRIVATE)'}. Entregados: app ${cuenta.push}, fallos ${cuenta.pushFallos}, ntfy ${cuenta.ntfy}.`);

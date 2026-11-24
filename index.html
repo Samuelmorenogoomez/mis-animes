@@ -330,6 +330,13 @@ details.block .eps{margin-top:8px}
       <button class="btn small" id="bSyncNow">Sincronizar ahora</button>
       <button class="btn small danger" id="bDisconnect">Desconectar este aparato</button>
     </div>
+    <h3 style="margin-top:6px">Avisos de capítulos nuevos</h3>
+    <div class="row">
+      <p style="flex:1 1 300px" id="pushTxt"></p>
+      <button class="btn small primary" id="bPushOn" hidden>Activar avisos en este aparato</button>
+      <button class="btn small" id="bPushTest" hidden>Probar</button>
+      <button class="btn small danger" id="bPushOff" hidden>Desactivar</button>
+    </div>
     <h3 style="margin-top:6px">Copia de seguridad en un archivo</h3>
     <div class="row">
       <p style="flex:1 1 300px">Descarga tu lista entera en un archivo, por si acaso. Desde aquí también puedes cargarla.</p>
@@ -432,6 +439,7 @@ function normaliza(d){
   d.history = Array.isArray(d.history) ? d.history : [];
   d.deleted = d.deleted && typeof d.deleted === 'object' ? d.deleted : {};
   d.lastRefresh = d.lastRefresh || 0;
+  d.push = d.push && typeof d.push === 'object' ? d.push : {};
   return d;
 }
 let db = normaliza((() => { try { return JSON.parse(lsGet(KEY)); } catch { return null; } })());
@@ -1421,7 +1429,10 @@ function merge(a, b){
   // solo historial de capítulos que siguen marcados
   const history = [...hseen.values()].filter(h => (map.get(h.k)?.watched[h.p] || []).includes(h.n)).sort((x, y) => x.t - y.t);
   items.sort((x, y) => (y.updatedAt || 0) - (x.updatedAt || 0));
-  return {items, history, deleted, lastRefresh:Math.max(a.lastRefresh || 0, b.lastRefresh || 0)};
+  // aparatos con avisos: de cada uno, lo último que se hizo (activar o desactivar)
+  const push = {...a.push};
+  for(const [k, v] of Object.entries(b.push)) if(!push[k] || (v?.t || 0) > (push[k]?.t || 0)) push[k] = v;
+  return {items, history, deleted, lastRefresh:Math.max(a.lastRefresh || 0, b.lastRefresh || 0), push};
 }
 
 /* ---------- sincronización con un gist secreto de GitHub ---------- */
@@ -1440,6 +1451,7 @@ async function gh(path, opt = {}){
 }
 function setSyncState(txt, cls){ const s = $('#syncState'); s.textContent = txt; s.className = 'syncstate ' + (cls || ''); }
 function renderSyncBox(){
+  renderPushBox();
   $('#syncOff').hidden = !!sync?.gist; $('#syncOn').hidden = !sync?.gist;
   if(sync?.gist && !syncing) setSyncState(sync.last ? `Sincronizado · ${new Intl.DateTimeFormat('es-ES',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}).format(new Date(sync.last))}` : 'Conectado', 'ok');
 }
@@ -1491,6 +1503,53 @@ $('#bConnect').onclick = async () => {
 };
 $('#bSyncNow').onclick = () => syncNow(true);
 $('#bDisconnect').onclick = () => { sync = null; saveSync(); renderSyncBox(); toast('Desconectado. Tu lista sigue en este aparato.'); };
+
+/* ---------- avisos push en este aparato ---------- */
+const VAPID_PUBLIC = 'BGrRhMJK1bwbbk-BGlknQgYEjsYL2PCmVmocxXHnPMoAOlMEkslhVxHOEmkU2kPLFaHuoAU7Zyv_59iRhgvDYnA';
+const esIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+const pushPosible = () => location.protocol === 'https:' && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+function deviceId(){
+  let d = lsGet('misAnimes.aparato');
+  if(!d){ d = 'ap-' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36); lsSet('misAnimes.aparato', d); }
+  return d;
+}
+function nombreAparato(){ const u = navigator.userAgent; return /Android/.test(u) ? 'Android' : esIOS ? 'iPhone' : 'Ordenador'; }
+function b64uToU8(s){ const b = atob((s + '='.repeat((4 - s.length % 4) % 4)).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(b, c => c.charCodeAt(0)); }
+function renderPushBox(){
+  const on = db.push[deviceId()]?.sub && !db.push[deviceId()]?.off && typeof Notification !== 'undefined' && Notification.permission === 'granted';
+  const otros = Object.entries(db.push).filter(([k, v]) => k !== deviceId() && v?.sub && !v.off).map(([, v]) => v.nombre || 'otro aparato');
+  let txt;
+  if(location.protocol !== 'https:') txt = 'Los avisos solo funcionan abriendo la app desde su web (samuelmorenogoomez.github.io/mis-animes), no desde el archivo del PC.';
+  else if(!pushPosible()) txt = esIOS ? 'En iPhone, primero añade la app a la pantalla de inicio (en Safari: Compartir → «Añadir a pantalla de inicio») y ábrela desde ahí.' : 'Este navegador no admite avisos. Prueba con Chrome.';
+  else if(!sync?.gist) txt = 'Primero conecta la sincronización de arriba: los avisos salen de tu nota de GitHub.';
+  else if(on) txt = 'Avisos activados en este aparato: te llegará uno cuando salga un capítulo de lo que tienes en «Viendo».';
+  else txt = 'Recibe un aviso en este aparato cuando salga un capítulo de lo que tienes en «Viendo», aunque la app esté cerrada.';
+  if(otros.length) txt += ` También activados en: ${otros.join(', ')}.`;
+  $('#pushTxt').textContent = txt;
+  const puede = pushPosible() && !!sync?.gist;
+  $('#bPushOn').hidden = !puede || on; $('#bPushOff').hidden = !puede || !on; $('#bPushTest').hidden = !puede || !on;
+}
+$('#bPushOn').onclick = async () => {
+  try{
+    const perm = await Notification.requestPermission();
+    if(perm !== 'granted'){ toast('Sin permiso para avisos. Puedes darlo en los ajustes del navegador.'); return; }
+    const reg = await navigator.serviceWorker.ready;
+    const sub = (await reg.pushManager.getSubscription()) || await reg.pushManager.subscribe({userVisibleOnly:true, applicationServerKey:b64uToU8(VAPID_PUBLIC)});
+    db.push[deviceId()] = {sub:sub.toJSON(), nombre:nombreAparato(), t:Date.now()};
+    save(); renderPushBox(); toast('Avisos activados en este aparato');
+  }catch(e){ toast('No se pudieron activar los avisos: ' + (e.message || e)); }
+};
+$('#bPushOff').onclick = async () => {
+  try { const reg = await navigator.serviceWorker.getRegistration(); const s = await reg?.pushManager.getSubscription(); await s?.unsubscribe(); } catch {}
+  db.push[deviceId()] = {off:true, t:Date.now()};
+  save(); renderPushBox(); toast('Avisos desactivados en este aparato');
+};
+$('#bPushTest').onclick = async () => {
+  try{
+    const reg = await navigator.serviceWorker.ready;
+    await reg.showNotification('Mis animes y mangas', {body:'Así te llegarán los avisos de capítulos nuevos.', icon:'icono-192.png'});
+  }catch(e){ toast('No se pudo mostrar el aviso: ' + (e.message || e)); }
+};
 
 /* copia de seguridad */
 $('#bBackup').onclick = () => { $('#backupBox').hidden = !$('#backupBox').hidden; renderSyncBox(); };

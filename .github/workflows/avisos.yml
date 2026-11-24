@@ -35,11 +35,15 @@ jobs:
           key: avisos-${{ github.run_id }}
           restore-keys: avisos-
 
+      - name: Instalar la librería de avisos
+        run: npm install --no-save --no-audit --no-fund web-push@3.6.7
+
       - name: Buscar capítulos nuevos y avisar
         run: node avisos/avisos.mjs
         env:
           GIST_ID: ${{ secrets.GIST_ID }}
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          VAPID_PRIVATE: ${{ secrets.VAPID_PRIVATE }}
           PRUEBA: ${{ inputs.prueba }}
 
       - name: Guardar la hora de esta comprobación

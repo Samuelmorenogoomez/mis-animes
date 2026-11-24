@@ -1,5 +1,5 @@
 // Guarda la app para que abra aunque no haya conexión. Los datos de AniList y GitHub no se guardan aquí.
-const CACHE = 'mis-animes-v2';
+const CACHE = 'mis-animes-v3';
 const APP = ['./', 'index.html', 'manifest.webmanifest', 'icono-192.png', 'icono-512.png'];
 
 self.addEventListener('install', e => {
@@ -18,7 +18,7 @@ self.addEventListener('fetch', e => {
     }).catch(() => caches.match(e.request).then(r => r || caches.match('index.html'))));
     return;
   }
-  // portadas de AniList: guardadas para verlas sin conexión
+  // portadas de AniList: guardadas para verlas sin conexión (las demás peticiones pasan sin tocar)
   if (url.hostname.endsWith('anilist.co') && e.request.destination === 'image') {
     e.respondWith(caches.open(CACHE + '-img').then(async c => {
       const hit = await c.match(e.request);
@@ -28,4 +28,24 @@ self.addEventListener('fetch', e => {
       return r;
     }));
   }
+});
+
+// avisos de capítulos nuevos (los manda GitHub Actions cada media hora)
+self.addEventListener('push', e => {
+  let d = {};
+  try { d = e.data ? e.data.json() : {}; } catch { d = { body: e.data ? e.data.text() : '' }; }
+  e.waitUntil(self.registration.showNotification(d.title || 'Mis animes y mangas', {
+    body: d.body || '',
+    icon: d.icon || 'icono-192.png',
+    tag: d.tag || undefined,
+    data: { url: d.url || './' }
+  }));
+});
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  const url = new URL(e.notification.data?.url || './', self.registration.scope).href;
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(cs => {
+    for (const c of cs) if (c.url.startsWith(self.registration.scope) && 'focus' in c) return c.focus();
+    return self.clients.openWindow(url);
+  }));
 });
