@@ -1,10 +1,9 @@
 // Avisos al móvil: mira qué capítulos de tus series en «Viendo» han salido desde la última
-// comprobación y manda una notificación por ntfy. Lo ejecuta GitHub Actions cada media hora.
+// comprobación y manda un aviso a la app (web push). Lo ejecuta GitHub Actions cada media hora.
 // Los registros de Actions son públicos: aquí no se imprime ningún título ni dato de la lista.
 import fs from 'node:fs';
 
 const GIST_ID = process.env.GIST_ID;
-const TOPIC = process.env.NTFY_TOPIC;
 const PRUEBA = process.env.PRUEBA === 'true';
 const APP = 'https://samuelmorenogoomez.github.io/mis-animes/';
 const ESTADO = 'estado/ultimo.json';
@@ -21,7 +20,7 @@ if (VAPID_PRIVATE) {
   webpush.setVapidDetails(APP, VAPID_PUBLIC, VAPID_PRIVATE);
 }
 let aparatos = [];
-const cuenta = { push: 0, pushFallos: 0, ntfy: 0 };
+const cuenta = { push: 0, pushFallos: 0 };
 
 async function avisar(title, message, icon, tag) {
   for (const s of aparatos) {
@@ -29,14 +28,6 @@ async function avisar(title, message, icon, tag) {
       await webpush.sendNotification(s, JSON.stringify({ title, body: message, icon, tag, url: APP }), { TTL: 6 * 3600 });
       cuenta.push++;
     } catch (e) { cuenta.pushFallos++; }
-  }
-  if (TOPIC) {
-    const r = await fetch('https://ntfy.sh/', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ topic: TOPIC, title, message, click: APP, tags: ['tv'], ...(icon ? { icon } : {}) })
-    });
-    if (r.ok) cuenta.ntfy++;
   }
 }
 
@@ -99,4 +90,4 @@ if (porParte.size) {
 
 fs.mkdirSync('estado', { recursive: true });
 fs.writeFileSync(ESTADO, JSON.stringify({ ultimo: ahora }));
-console.log(`Series en emisión revisadas: ${porParte.size}. Capítulos nuevos: ${enviados}. Aparatos con avisos: ${aparatos.length}${webpush ? '' : ' (falta VAPID_PRIVATE)'}. Entregados: app ${cuenta.push}, fallos ${cuenta.pushFallos}, ntfy ${cuenta.ntfy}.`);
+console.log(`Series en emisión revisadas: ${porParte.size}. Capítulos nuevos: ${enviados}. Aparatos con avisos: ${aparatos.length}${webpush ? '' : ' (falta VAPID_PRIVATE)'}. Entregados: app ${cuenta.push}, fallos ${cuenta.pushFallos}.`);
