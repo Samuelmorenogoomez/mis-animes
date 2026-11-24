@@ -1,6 +1,6 @@
 // Guarda la app para que abra aunque no haya conexión. Los datos de AniList y GitHub no se guardan aquí.
-const CACHE = 'mis-animes-v3';
-const APP = ['./', 'index.html', 'manifest.webmanifest', 'icono-192.png', 'icono-512.png'];
+const CACHE = 'mis-animes-v4';
+const APP = ['./', 'index.html', 'manifest.webmanifest', 'icono-48.png', 'icono-192.png', 'icono-512.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(APP)).then(() => self.skipWaiting()));
@@ -34,7 +34,7 @@ self.addEventListener('fetch', e => {
 self.addEventListener('push', e => {
   let d = {};
   try { d = e.data ? e.data.json() : {}; } catch { d = { body: e.data ? e.data.text() : '' }; }
-  e.waitUntil(self.registration.showNotification(d.title || 'Mis animes y mangas', {
+  e.waitUntil(self.registration.showNotification(d.title || 'Shiori', {
     body: d.body || '',
     icon: d.icon || 'icono-192.png',
     tag: d.tag || undefined,

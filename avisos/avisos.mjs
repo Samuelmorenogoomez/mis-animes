@@ -52,7 +52,7 @@ try { db = await leerLista(); } catch (e) { console.log(e.message); process.exit
 if (webpush) aparatos = Object.values(db.push || {}).filter(x => x && x.sub && !x.off).map(x => x.sub);
 
 if (PRUEBA) {
-  await avisar('Mis animes y mangas', 'Los avisos funcionan. Te llegará uno así cada vez que salga un capítulo de lo que estás viendo.');
+  await avisar('Shiori', 'Los avisos funcionan. Te llegará uno así cada vez que salga un capítulo de lo que estás viendo.');
   console.log('Aviso de prueba enviado');
 }
 

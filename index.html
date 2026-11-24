@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Mis animes y mangas</title>
+<title>Shiori</title>
 <meta name="theme-color" content="#2F6BDE">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="icon" href="icono-192.png">
+<link rel="icon" href="icono-48.png">
 <link rel="apple-touch-icon" href="icono-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -286,7 +286,7 @@ details.block .eps{margin-top:8px}
 
 <header class="top">
   <div class="wrap">
-    <div class="brand"><i>見</i>Mis animes y mangas</div>
+    <div class="brand"><i>栞</i>Shiori</div>
     <div class="searchbox">
       <div class="seg" role="group" aria-label="Qué buscar">
         <button id="tAnime" aria-pressed="true">Anime</button>
@@ -316,7 +316,7 @@ details.block .eps{margin-top:8px}
     <div id="syncOff">
       <p>Tu lista se guarda en una nota privada de tu cuenta de GitHub (un «gist secreto»). Así el PC y el móvil ven la misma lista. Solo hay que hacerlo una vez en cada aparato:</p>
       <ol>
-        <li>Entra en <a href="https://github.com/settings/tokens/new?scopes=gist&description=Mis%20animes%20y%20mangas" target="_blank" rel="noopener">github.com/settings/tokens/new</a> (ya va marcado el permiso «gist», que es el único que hace falta).</li>
+        <li>Entra en <a href="https://github.com/settings/tokens/new?scopes=gist&description=Shiori" target="_blank" rel="noopener">github.com/settings/tokens/new</a> (ya va marcado el permiso «gist», que es el único que hace falta).</li>
         <li>En «Expiration» elige «No expiration» y pulsa «Generate token» abajo del todo.</li>
         <li>Copia el código que empieza por <code>ghp_</code> y pégalo aquí. En el móvil, pega el mismo.</li>
       </ol>
@@ -1566,7 +1566,7 @@ $('#bPushOff').onclick = async () => {
 $('#bPushTest').onclick = async () => {
   try{
     const reg = await navigator.serviceWorker.ready;
-    await reg.showNotification('Mis animes y mangas', {body:'Así te llegarán los avisos de capítulos nuevos.', icon:'icono-192.png'});
+    await reg.showNotification('Shiori', {body:'Así te llegarán los avisos de capítulos nuevos.', icon:'icono-192.png'});
   }catch(e){ toast('No se pudo mostrar el aviso: ' + (e.message || e)); }
 };
 
