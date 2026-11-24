@@ -755,7 +755,13 @@ function markNext(it){
 /* ---------- vistas ---------- */
 let view = 'lista', fType = 'todo', fState = 'todos', qType = 'ANIME';
 let listQ = '', sortBy = lsGet('misAnimes.orden') || 'reciente';
-function setView(v){
+/* botón «atrás» del móvil: cada pestaña y cada ficha abierta es un paso en el historial */
+function setView(v, desdeAtras){
+  if(!desdeAtras && v !== view){
+    if(v === 'lista'){ if(history.state?.view && history.state.view !== 'lista'){ history.back(); return; } }
+    else if(view === 'lista') history.pushState({view:v}, '');
+    else history.replaceState({view:v}, '');
+  }
   view = v;
   document.querySelectorAll('.tabs button').forEach(b => b.setAttribute('aria-selected', b.dataset.view === v));
   $('#vLista').hidden = v !== 'lista'; $('#vSemana').hidden = v !== 'semana'; $('#vStats').hidden = v !== 'stats'; $('#vDescubrir').hidden = v !== 'descubrir';
@@ -1113,6 +1119,7 @@ let previewM = null;
 async function openPreview(id){
   const ya = findItemWithPart(id); if(ya) return openDetail(ya.key);
   openKey = null; previewM = {id, loading:true}; synOpen = false; showOrig = false;
+  if($('#sheet').hidden) history.pushState({view, ficha:1}, '');
   $('#scrim').hidden = false; $('#sheet').hidden = false; document.body.style.overflow = 'hidden';
   renderPreview(); $('#sheet').scrollTop = 0;
   try{
@@ -1169,6 +1176,7 @@ function openDetail(key){
   modo = it.type === 'MANGA' ? 'hasta' : (lsGet('misAnimes.modo') || 'hasta');
   loadLinks(it).then(cambio => { if(cambio && openKey === key) renderDetail(); }).catch(() => {});
   if(it.seenAired !== stats(it).aired){ it.seenAired = stats(it).aired; save(true); }
+  if($('#sheet').hidden) history.pushState({view, ficha:1}, '');
   $('#scrim').hidden = false; $('#sheet').hidden = false; document.body.style.overflow = 'hidden';
   renderDetail(); $('#sheet').scrollTop = 0; render();
   if(it.desc && !it.descEs){
@@ -1176,7 +1184,15 @@ function openDetail(key){
     traducir(it.desc).then(t => { it.descEs = t; save(true); }).catch(() => tradFalla.add(key)).then(() => { if(openKey === key) renderDetail(); });
   }
 }
-function closeDetail(){ openKey = null; previewM = null; $('#scrim').hidden = true; $('#sheet').hidden = true; document.body.style.overflow = ''; renderAll(); }
+function cerrarFicha(){ openKey = null; previewM = null; $('#scrim').hidden = true; $('#sheet').hidden = true; document.body.style.overflow = ''; renderAll(); }
+/* cerrar con la ✕, el fondo o Esc: se deshace el paso del historial, y el «atrás» cierra la ficha */
+function closeDetail(){ if(history.state?.ficha && !$('#sheet').hidden) history.back(); else cerrarFicha(); }
+addEventListener('popstate', e => {
+  if(!$('#sheet').hidden) cerrarFicha();
+  else if(!$('#results').hidden) closeResults();
+  const v = e.state?.view || 'lista';
+  if(v !== view) setView(v, true);
+});
 let hmap = new Map();
 function epButtons(it, p, from, to){
   const set = new Set(it.watched[p.id] || []), ap = aired(p, it);
@@ -1581,7 +1597,8 @@ $('#bInstall').onclick = async () => { if(!installEv) return; installEv.prompt()
 if('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
 
 /* arranque */
-setView('lista'); renderSync(); renderSyncBox();
+history.replaceState({view:'lista'}, '');
+setView('lista', true); renderSync(); renderSyncBox();
 if(sync?.gist) syncNow().then(() => refresh(false)); else refresh(false);
 setInterval(() => { refresh(false); renderAll(); }, 15*60*1000);
 document.addEventListener('visibilitychange', () => { if(!document.hidden){ renderAll(); refresh(false); if(sync?.gist) syncNow(); } });
