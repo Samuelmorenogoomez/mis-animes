@@ -753,7 +753,9 @@ function markNext(it){
 }
 
 /* ---------- vistas ---------- */
-let view = 'lista', fType = 'todo', fState = 'todos', qType = 'ANIME';
+let view = 'lista', fType = lsGet('misAnimes.fTipo') || 'todo', fState = lsGet('misAnimes.fEstado') || 'encurso', qType = 'ANIME';
+/* «En curso» = lo que estás viendo y lo pendiente; lo terminado y lo abandonado tienen su propio filtro */
+const pasaEstado = (it, k) => k === 'todos' || (k === 'encurso' ? (it.estado === 'viendo' || it.estado === 'pendiente') : it.estado === k);
 let listQ = '', sortBy = lsGet('misAnimes.orden') || 'reciente';
 /* botón «atrás» del móvil: cada pestaña y cada ficha abierta es un paso en el historial */
 function setView(v, desdeAtras){
@@ -802,10 +804,10 @@ function sorter(){
 }
 function render(){
   const items = db.items;
-  const cnt = k => items.filter(it => (fType === 'todo' || it.type === fType) && (k === 'todos' || it.estado === k)).length;
+  const cnt = k => items.filter(it => (fType === 'todo' || it.type === fType) && pasaEstado(it, k)).length;
   $('#fType').innerHTML = [['todo','Todo'],['ANIME','Anime'],['MANGA','Manga']].map(([k,l]) =>
     `<button class="chip" data-ft="${k}" aria-pressed="${fType===k}">${l}<span class="n">${items.filter(it => k==='todo' || it.type===k).length}</span></button>`).join('');
-  $('#fState').innerHTML = [['todos','Todos'], ...ESTADOS].map(([k,l]) =>
+  $('#fState').innerHTML = [['encurso','En curso'], ...ESTADOS, ['todos','Todos']].map(([k,l]) =>
     `<button class="chip" data-fs="${k}" aria-pressed="${fState===k}">${l}<span class="n">${cnt(k)}</span></button>`).join('');
   $('#sortSel').value = sortBy;
   $('#listTools').hidden = items.length < 2;
@@ -820,7 +822,7 @@ function render(){
   $('#weekBadge').hidden = !enSemana; $('#weekBadge').textContent = enSemana;
 
   const lq = norm(listQ);
-  const list = items.filter(it => (fType === 'todo' || it.type === fType) && (fState === 'todos' || it.estado === fState)
+  const list = items.filter(it => (fType === 'todo' || it.type === fType) && (lq || pasaEstado(it, fState))
     && (!lq || norm(it.title + ' ' + it.romaji + ' ' + (it.native || '')).includes(lq))).sort(sorter());
   const g = $('#grid');
   if(!items.length){
@@ -1346,8 +1348,8 @@ document.addEventListener('click', e => {
   }
   if(t.dataset.next){ const it = db.items.find(i => i.key === t.dataset.next); if(it) markNext(it); return; }
   if(t.dataset.open){ closeResults(); openDetail(t.dataset.open); return; }
-  if(t.dataset.ft){ fType = t.dataset.ft; render(); return; }
-  if(t.dataset.fs){ fState = t.dataset.fs; render(); return; }
+  if(t.dataset.ft){ fType = t.dataset.ft; lsSet('misAnimes.fTipo', fType); render(); return; }
+  if(t.dataset.fs){ fState = t.dataset.fs; lsSet('misAnimes.fEstado', fState); render(); return; }
   if(t.dataset.suggest){ setQType(t.dataset.st); $('#q').value = t.dataset.suggest; doSearch(); $('#q').focus(); return; }
   if(t.dataset.add){ addMedia(+t.dataset.add, t.dataset.type); return; }
   const it = db.items.find(i => i.key === openKey);
