@@ -69,7 +69,8 @@ button{cursor:pointer}
 
 /* Resultados de búsqueda */
 .results{position:absolute;top:48px;left:0;right:0;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);max-height:min(70vh,560px);overflow:auto;padding:6px;z-index:30}
-.res{display:grid;grid-template-columns:44px 1fr auto;gap:12px;align-items:center;padding:8px;border-radius:10px}
+.res{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;padding:8px;border-radius:10px}
+.res-main{display:grid;grid-template-columns:44px 1fr;gap:12px;align-items:center;background:none;border:0;padding:0;text-align:left;min-width:0;color:inherit}
 .res:hover{background:var(--surface-2)}
 .res img{width:44px;height:62px;object-fit:cover;border-radius:6px;background:var(--line)}
 .res b{display:block;font-weight:600;line-height:1.25}
@@ -1318,7 +1319,7 @@ function renderDetail(){
 document.addEventListener('click', e => {
   const t = e.target.closest('button,[data-open]'); if(!t) return;
   if(t.dataset.view){ setView(t.dataset.view); return; }
-  if(t.dataset.preview){ openPreview(+t.dataset.preview); return; }
+  if(t.dataset.preview){ closeResults(); openPreview(+t.dataset.preview); return; }
   if(t.dataset.dmode){ discMode = t.dataset.dmode; lsSet('misAnimes.desc', discMode); renderDescubrir(); return; }
   if(t.dataset.doff !== undefined){ discOff = +t.dataset.doff; renderDescubrir(); return; }
   if(t.dataset.rtype){ recoType = t.dataset.rtype; renderDescubrir(); return; }
@@ -1328,7 +1329,7 @@ document.addEventListener('click', e => {
     renderPreview(); return;
   }
   if(t.dataset.next){ const it = db.items.find(i => i.key === t.dataset.next); if(it) markNext(it); return; }
-  if(t.dataset.open){ openDetail(t.dataset.open); return; }
+  if(t.dataset.open){ closeResults(); openDetail(t.dataset.open); return; }
   if(t.dataset.ft){ fType = t.dataset.ft; render(); return; }
   if(t.dataset.fs){ fState = t.dataset.fs; render(); return; }
   if(t.dataset.suggest){ setQType(t.dataset.st); $('#q').value = t.dataset.suggest; doSearch(); $('#q').focus(); return; }
@@ -1399,8 +1400,10 @@ async function doSearch(){
       const ya = findItemWithPart(m.id);
       const info = [FORMATO[m.format] || m.format, m.seasonYear || m.startDate?.year, m.type === 'ANIME' ? (m.episodes ? m.episodes + ' caps.' : '') : (m.chapters ? m.chapters + ' caps.' : '')].filter(Boolean).join(' · ');
       return `<div class="res">
+        <button class="res-main" ${ya ? `data-open="${esc(ya.key)}"` : `data-preview="${m.id}"`} title="Ver ficha">
         ${safeUrl(m.coverImage?.medium) ? `<img src="${esc(m.coverImage.medium)}" alt="" loading="lazy">` : '<img alt="">'}
         <div style="min-width:0"><b>${esc(m.title.english || m.title.romaji)}</b><small>${esc(m.title.english && m.title.romaji !== m.title.english ? m.title.romaji + ' · ' : '')}${esc(info)}</small></div>
+        </button>
         ${ya ? `<button class="btn small" data-open="${esc(ya.key)}"><span class="in">✓ En tu lista</span></button>` : `<button class="btn small primary" data-add="${m.id}" data-type="${m.type}">Añadir</button>`}
       </div>`;
     }).join('');
